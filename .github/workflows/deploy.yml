@@ -36,3 +36,10 @@ jobs:
 
       - name: Subir imagen a ECR
         run: docker push 851725347003.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:latest
+      - name: Actualizar servicio ECS
+        run: |
+          aws ecs update-service \
+            --cluster turnos-cluster \
+            --service turnos-api-service \
+            --force-new-deployment \
+            --region us-east-1
