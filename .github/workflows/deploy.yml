@@ -29,7 +29,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Construir imagen Docker
-        run: docker build -t $ECR_REPOSITORY ./backend
+        run: docker build -t $ECR_REPOSITORY ./SistemaTurnosAWS/backend
 
       - name: Etiquetar imagen
         run: docker tag $ECR_REPOSITORY:latest 851725347003.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:latest
