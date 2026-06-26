@@ -31,3 +31,5 @@ resource "aws_lb" "turnos_alb" {
     aws_subnet.public_subnet.id
   ]
 }
+
+ 
