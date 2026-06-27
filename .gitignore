@@ -1,17 +1,21 @@
-terraform/.terraform/
-*.tfstate
-*.tfstate.backup
-.terraform/
-terraform/.terraform/
-*.tfstate
-*.tfstate.backup
-.terraform/
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+*.db
+
+# Terraform
 **/.terraform/
 *.tfstate
-*.tfstate.backup
-**/.terraform/
-*.tfstate
-*.tfstate.backup
-**/.terraform/
-*.tfstate
-*.tfstate.backup
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+
+# Frontend
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db

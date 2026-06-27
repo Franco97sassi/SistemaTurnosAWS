@@ -1,81 +1,92 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
-
-const API_URL = import.meta.env.VITE_API_URL;
+ 
+const API_URL = "http://turnos-alb-172952982.us-east-1.elb.amazonaws.com";
 
 function App() {
-  const [clientes, setClientes] = useState([]);
-  const [nombre, setNombre] = useState("");
-  const [email, setEmail] = useState("");
-  const [telefono, setTelefono] = useState("");
+  const [turnos, setTurnos] = useState([]);
+  const [cliente, setCliente] = useState("");
+  const [servicio, setServicio] = useState("");
+  const [fecha, setFecha] = useState("");
 
-  const cargarClientes = async () => {
-    const res = await axios.get(`${API_URL}/clientes/`);
-    setClientes(res.data);
+  const cargarTurnos = async () => {
+    const response = await axios.get(`${API_URL}/turnos`);
+    setTurnos(response.data);
   };
 
-  const crearCliente = async (e) => {
+  const crearTurno = async (e) => {
     e.preventDefault();
 
-    await axios.post(`${API_URL}/clientes/`, {
-      nombre,
-      email,
-      telefono,
+    await axios.post(`${API_URL}/turnos`, {
+      cliente,
+      servicio,
+      fecha,
     });
 
-    setNombre("");
-    setEmail("");
-    setTelefono("");
-    cargarClientes();
+    setCliente("");
+    setServicio("");
+    setFecha("");
+    cargarTurnos();
+  };
+
+  const cancelarTurno = async (id) => {
+    await axios.delete(`${API_URL}/turnos/${id}`);
+    cargarTurnos();
   };
 
   useEffect(() => {
-    cargarClientes();
+    cargarTurnos();
   }, []);
 
   return (
     <div className="container">
       <h1>Sistema de Turnos AWS</h1>
 
-      <form onSubmit={crearCliente} className="card">
-        <h2>Crear Cliente</h2>
-
+      <form onSubmit={crearTurno} className="formulario">
         <input
-          placeholder="Nombre"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
+          type="text"
+          placeholder="Cliente"
+          value={cliente}
+          onChange={(e) => setCliente(e.target.value)}
+          required
         />
 
         <input
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Servicio"
+          value={servicio}
+          onChange={(e) => setServicio(e.target.value)}
+          required
         />
 
         <input
-          placeholder="Teléfono"
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
+          type="datetime-local"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          required
         />
 
-        <button type="submit">Guardar Cliente</button>
+        <button type="submit">Crear turno</button>
       </form>
 
-      <div className="card">
-        <h2>Clientes</h2>
+      <h2>Turnos</h2>
 
-        {clientes.length === 0 ? (
-          <p>No hay clientes cargados.</p>
-        ) : (
-          clientes.map((cliente) => (
-            <div key={cliente.id} className="item">
-              <strong>{cliente.nombre}</strong>
-              <p>{cliente.email}</p>
-              <p>{cliente.telefono}</p>
-            </div>
-          ))
-        )}
+      <div className="lista">
+        {turnos.map((turno) => (
+          <div key={turno.id} className="card">
+            <p><strong>Cliente:</strong> {turno.cliente}</p>
+            <p><strong>Servicio:</strong> {turno.servicio}</p>
+            <p><strong>Fecha:</strong> {new Date(turno.fecha).toLocaleString()}</p>
+            <p><strong>Estado:</strong> {turno.estado}</p>
+
+            {turno.estado !== "cancelado" && (
+              <button onClick={() => cancelarTurno(turno.id)}>
+                Cancelar
+              </button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

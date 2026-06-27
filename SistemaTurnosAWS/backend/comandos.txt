@@ -1,0 +1,10 @@
+uvicorn app.main:app --reload
+ docker run -p 8000:8000 --env-file .env sistema-turnos-api
+
+
+ PS C:\Users\Franc\Desktop\TurnosAws\SistemaTurnosAWS\backend> aws sts get-caller-identity 
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 851725347003.dkr.ecr.us-east-1.amazonaws.com
+
+docker tag sistema-turnos-api:latest 851725347003.dkr.ecr.us-east-1.amazonaws.com/sistema-turnos-api:latest
+
+docker push 851725347003.dkr.ecr.us-east-1.amazonaws.com/sistema-turnos-api:latest
