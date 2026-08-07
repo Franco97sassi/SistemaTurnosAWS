@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://turnos-alb-172952982.us-east-1.elb.amazonaws.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function App() {
   const [turnos, setTurnos] = useState([]);
@@ -17,7 +17,7 @@ function App() {
       setLoading(true);
       const response = await axios.get(`${API_URL}/turnos`);
       setTurnos(response.data);
-    } catch (error) {
+    } catch {
       setMensaje("Error al cargar turnos");
     } finally {
       setLoading(false);
@@ -39,7 +39,7 @@ function App() {
       setFecha("");
       setMensaje("Turno creado correctamente");
       cargarTurnos();
-    } catch (error) {
+    } catch {
       setMensaje("Error al crear el turno");
     }
   };
@@ -49,7 +49,7 @@ function App() {
       await axios.delete(`${API_URL}/turnos/${id}`);
       setMensaje("Turno cancelado correctamente");
       cargarTurnos();
-    } catch (error) {
+    } catch {
       setMensaje("Error al cancelar el turno");
     }
   };
