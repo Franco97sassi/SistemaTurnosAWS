@@ -27,6 +27,20 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy" "ecs_read_database_secret" {
+  name = "turnos-read-database-secret"
+  role = aws_iam_role.ecs_task_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = aws_db_instance.postgres.master_user_secret[0].secret_arn
+    }]
+  })
+}
+
 resource "aws_ecs_task_definition" "backend" {
   family                   = "turnos-backend"
   requires_compatibilities = ["FARGATE"]
@@ -40,7 +54,7 @@ resource "aws_ecs_task_definition" "backend" {
   container_definitions = jsonencode([
     {
       name      = "backend"
-      image     = "851725347003.dkr.ecr.us-east-1.amazonaws.com/sistema-turnos-api:latest"
+      image     = "${aws_ecr_repository.backend.repository_url}:latest"
       essential = true
 
       portMappings = [
@@ -52,15 +66,18 @@ resource "aws_ecs_task_definition" "backend" {
       ]
 
       environment = [
-  {
-    name  = "DATABASE_URL"
-    value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
-  },
-  {
-    name  = "APP_VERSION"
-    value = "3"
-  }
-]
+        { name = "DB_HOST", value = aws_db_instance.postgres.address },
+        { name = "DB_PORT", value = tostring(aws_db_instance.postgres.port) },
+        { name = "DB_NAME", value = var.db_name },
+        { name = "DB_USER", value = var.db_username },
+        { name = "CORS_ORIGINS", value = var.cors_origins },
+        { name = "APP_VERSION", value = "1.0.0" }
+      ]
+
+      secrets = [{
+        name      = "DB_PASSWORD"
+        valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::"
+      }]
 
       logConfiguration = {
         logDriver = "awslogs"

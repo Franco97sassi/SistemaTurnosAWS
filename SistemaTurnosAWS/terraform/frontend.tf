@@ -3,7 +3,7 @@
 #############################################
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = "turnos-frontend-851725347003"
+  bucket = "turnos-frontend-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Name = "turnos-frontend"
