@@ -36,9 +36,11 @@ jobs:
 
       - name: Test backend
         working-directory: SistemaTurnosAWS/backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/SistemaTurnosAWS/backend
         run: |
-          pip install -r requirements-dev.txt
-          pytest --cov=app --cov-report=term-missing --cov-fail-under=85
+          python -m pip install -r requirements-dev.txt
+          python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=85
 
       - name: Set up Node
         uses: actions/setup-node@v4
