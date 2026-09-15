@@ -18,6 +18,7 @@ env:
   ECR_REPOSITORY: sistema-turnos-api
   ECS_CLUSTER: turnos-cluster
   ECS_SERVICE: turnos-backend-service
+  ECS_TASK_FAMILY: turnos-backend
   CONTAINER_NAME: backend
 
 jobs:
@@ -94,17 +95,48 @@ jobs:
           docker build -t $REPOSITORY:${{ github.sha }} -t $REPOSITORY:latest ./SistemaTurnosAWS/backend
           docker push $REPOSITORY --all-tags
 
-      - name: Create immutable task definition
+      - name: Resolve deployed task definition
         run: |
+          set -euo pipefail
+          echo "AWS identity: $(aws sts get-caller-identity --query Arn --output text)"
+          echo "ECS region: ${{ env.AWS_REGION }}"
+          echo "ECS cluster/service: ${{ env.ECS_CLUSTER }}/${{ env.ECS_SERVICE }}"
+
+          SERVICE_TASK_DEFINITION=$(aws ecs describe-services \
+            --region "${{ env.AWS_REGION }}" \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}" \
+            --query 'services[0].taskDefinition' --output text)
+
+          if [[ -z "$SERVICE_TASK_DEFINITION" || "$SERVICE_TASK_DEFINITION" == "None" ]]; then
+            echo "::error::The ECS service does not exist in the configured account/region. Provision the Terraform infrastructure first."
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --region "${{ env.AWS_REGION }}" \
+            --task-definition "$SERVICE_TASK_DEFINITION" \
+            --query taskDefinition > task-definition.json
+
+          DEPLOYED_FAMILY=$(jq -r '.family' task-definition.json)
+          if [[ "$DEPLOYED_FAMILY" != "${{ env.ECS_TASK_FAMILY }}" ]]; then
+            echo "::error::ECS service uses task family '$DEPLOYED_FAMILY'; expected '${{ env.ECS_TASK_FAMILY }}'."
+            exit 1
+          fi
+
+      - name: Register immutable task definition revision
+        run: |
+          set -euo pipefail
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           REPOSITORY=$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
-          aws ecs describe-task-definition --task-definition turnos-backend \
-            --query taskDefinition > task-definition.json
+          jq --exit-status --arg NAME "${{ env.CONTAINER_NAME }}" \
+            '.containerDefinitions[] | select(.name == $NAME)' task-definition.json >/dev/null
           jq --arg IMAGE "$REPOSITORY:${{ github.sha }}" --arg NAME "${{ env.CONTAINER_NAME }}" \
             'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) |
              (.containerDefinitions[] | select(.name == $NAME) | .image) = $IMAGE' \
             task-definition.json > rendered-task-definition.json
           TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --region "${{ env.AWS_REGION }}" \
             --cli-input-json file://rendered-task-definition.json \
             --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN" >> "$GITHUB_ENV"
@@ -113,8 +145,10 @@ jobs:
         run: |
           aws ecs update-service --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ env.ECS_SERVICE }}" \
+            --region "${{ env.AWS_REGION }}" \
             --task-definition "$TASK_DEFINITION_ARN" >/dev/null
           aws ecs wait services-stable --cluster "${{ env.ECS_CLUSTER }}" \
+            --region "${{ env.AWS_REGION }}" \
             --services "${{ env.ECS_SERVICE }}"
 
   deploy-frontend:
