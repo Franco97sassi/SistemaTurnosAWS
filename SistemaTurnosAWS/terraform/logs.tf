@@ -51,7 +51,7 @@ resource "aws_cloudwatch_dashboard" "operations" {
           [".", "HTTPCode_Target_5XX_Count", ".", ".", { stat = "Sum", yAxis = "right" }]
         ]
       }
-    }, {
+      }, {
       type = "metric", x = 12, y = 0, width = 12, height = 6,
       properties = {
         title = "ECS utilization", region = var.region, stat = "Average", period = 300,

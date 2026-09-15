@@ -34,8 +34,8 @@ resource "aws_iam_role_policy" "ecs_read_database_secret" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
       Resource = concat(
         [aws_db_instance.postgres.master_user_secret[0].secret_arn],
         var.auth_secret_arn == "" ? [] : [var.auth_secret_arn]
@@ -81,7 +81,7 @@ resource "aws_ecs_task_definition" "backend" {
       secrets = concat([{
         name      = "DB_PASSWORD"
         valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::"
-      }], var.auth_secret_arn == "" ? [] : [
+        }], var.auth_secret_arn == "" ? [] : [
         { name = "JWT_SECRET", valueFrom = "${var.auth_secret_arn}:JWT_SECRET::" },
         { name = "ADMIN_PASSWORD", valueFrom = "${var.auth_secret_arn}:ADMIN_PASSWORD::" }
       ])

@@ -60,7 +60,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "backend-alb"
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy   = "redirect-to-https"
     cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   }
@@ -71,7 +71,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "backend-alb"
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy   = "redirect-to-https"
     cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   }
@@ -82,7 +82,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "backend-alb"
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy   = "redirect-to-https"
     cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   }
@@ -93,7 +93,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "backend-alb"
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy   = "redirect-to-https"
     cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   }

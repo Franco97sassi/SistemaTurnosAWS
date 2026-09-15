@@ -1,7 +1,7 @@
 variable "region" {
   description = "AWS region used by the project"
   type        = string
-  default = "us-east-1"
+  default     = "us-east-1"
 }
 variable "environment" {
   description = "Deployment environment used for tags and safety controls"
@@ -33,13 +33,13 @@ variable "admin_email" {
 variable "db_name" {
   description = "PostgreSQL database name"
   type        = string
-  default = "turnosdb"
+  default     = "turnosdb"
 }
 
 variable "db_username" {
   description = "PostgreSQL administrator username"
   type        = string
-  default = "postgres"
+  default     = "postgres"
 }
 
 variable "cors_origins" {
