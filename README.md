@@ -78,6 +78,7 @@ Terraform exige un secreto externo de Secrets Manager con las claves
 | Backend | `DATABASE_URL` | URL completa para desarrollo local. |
 | Backend | `CORS_ORIGINS` | Orígenes permitidos separados por comas. |
 | Backend | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Configuración usada en ECS. |
+| Backend | `DB_CONNECT_TIMEOUT`, `DB_STARTUP_ATTEMPTS`, `DB_STARTUP_DELAY_SECONDS` | Límites de conexión y reintentos de migración durante el arranque. |
 | Backend | `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Firma de sesiones y cuenta inicial de operaciones. |
 | Frontend | `VITE_API_URL` | URL pública de FastAPI. |
 
@@ -120,6 +121,7 @@ El pipeline exige al menos 85% de cobertura del backend y ejecuta estos controle
 - Request ID propagado en cada respuesta y logs con latencia para facilitar el diagnóstico.
 - Imagen Docker trazable mediante la etiqueta SHA del commit.
 - Despliegue inmutable por SHA, circuit breaker de ECS, espera de estabilidad y smoke test posterior.
+- Arranque tolerante a demoras de RDS, contraseñas con caracteres reservados y migraciones simultáneas durante rolling deployments.
 - Logs JSON, dashboard operativo, alarmas opcionales por SNS y readiness check de base de datos.
 
 Consulta [Arquitectura y decisiones](docs/ARCHITECTURE.md) para conocer los trade-offs, el modelo de amenazas y la estrategia de evolución.
