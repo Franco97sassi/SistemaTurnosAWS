@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  id-token: write
+
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: sistema-turnos-api
@@ -30,7 +34,7 @@ jobs:
         working-directory: SistemaTurnosAWS/backend
         run: |
           pip install -r requirements-dev.txt
-          pytest
+          pytest --cov=app --cov-report=term-missing --cov-fail-under=85
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -69,8 +73,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -79,9 +82,9 @@ jobs:
       - name: Build and push Docker image
         run: |
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
-          docker build -t $IMAGE_URI ./SistemaTurnosAWS/backend
-          docker push $IMAGE_URI
+          REPOSITORY=$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
+          docker build -t $REPOSITORY:${{ github.sha }} -t $REPOSITORY:latest ./SistemaTurnosAWS/backend
+          docker push $REPOSITORY --all-tags
 
       - name: Force ECS deployment
         run: |
@@ -101,13 +104,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Build frontend
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: ""
         run: |
           cd SistemaTurnosAWS/frontend
           npm ci
