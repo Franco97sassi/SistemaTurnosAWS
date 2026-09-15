@@ -131,8 +131,15 @@ jobs:
           REPOSITORY=$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
           jq --exit-status --arg NAME "${{ env.CONTAINER_NAME }}" \
             '.containerDefinitions[] | select(.name == $NAME)' task-definition.json >/dev/null
-          jq --arg IMAGE "$REPOSITORY:${{ github.sha }}" --arg NAME "${{ env.CONTAINER_NAME }}" \
-            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) |
+
+          # Derive an allowlist from the installed AWS CLI service model. This keeps every
+          # supported RegisterTaskDefinition input while excluding describe-only metadata.
+          REGISTER_TASK_DEFINITION_KEYS=$(aws ecs register-task-definition \
+            --generate-cli-skeleton input | jq --compact-output 'keys')
+          jq --arg IMAGE "$REPOSITORY:${{ github.sha }}" \
+            --arg NAME "${{ env.CONTAINER_NAME }}" \
+            --argjson ALLOWED_KEYS "$REGISTER_TASK_DEFINITION_KEYS" \
+            'with_entries(select(.key as $key | $ALLOWED_KEYS | index($key))) |
              (.containerDefinitions[] | select(.name == $NAME) | .image) = $IMAGE' \
             task-definition.json > rendered-task-definition.json
           TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
