@@ -1,11 +1,22 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, Integer, String
 from .database import Base
 
 class Turno(Base):
     __tablename__ = "turnos"
 
     id = Column(Integer, primary_key=True, index=True)
-    cliente = Column(String, nullable=False)
-    servicio = Column(String, nullable=False)
-    fecha = Column(DateTime, nullable=False)
-    estado = Column(String, default="pendiente")
+    cliente = Column(String(100), nullable=False, index=True)
+    servicio = Column(String(100), nullable=False, index=True)
+    fecha = Column(DateTime(timezone=True), nullable=False, index=True)
+    estado = Column(String(20), nullable=False, default="pendiente", index=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )

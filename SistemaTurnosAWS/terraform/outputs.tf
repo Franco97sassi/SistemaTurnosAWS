@@ -27,7 +27,8 @@ output "alb_dns_name" {
 }
 
 output "backend_url" {
-  value = "http://${aws_lb.turnos_alb.dns_name}"
+  description = "HTTPS API URL proxied by CloudFront (same origin as the frontend)"
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
 

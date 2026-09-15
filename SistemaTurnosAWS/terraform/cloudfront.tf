@@ -17,6 +17,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_id                = "frontend-s3"
   }
 
+  origin {
+    domain_name = aws_lb.turnos_alb.dns_name
+    origin_id   = "backend-alb"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   default_cache_behavior {
 
     allowed_methods = [
@@ -40,6 +52,28 @@ resource "aws_cloudfront_distribution" "frontend" {
         forward = "none"
       }
     }
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "/turnos*"
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "backend-alb"
+
+    viewer_protocol_policy = "redirect-to-https"
+    cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
+    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "/health"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "backend-alb"
+
+    viewer_protocol_policy = "redirect-to-https"
+    cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
+    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   }
 
   restrictions {
