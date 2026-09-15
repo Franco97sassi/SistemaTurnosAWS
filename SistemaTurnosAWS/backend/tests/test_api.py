@@ -28,6 +28,11 @@ def client():
 
     app.dependency_overrides[get_db] = override_db
     with TestClient(app) as test_client:
+        login = test_client.post(
+            "/auth/login",
+            json={"email": "admin@turnos.local", "password": "TurnosDemo2026!"},
+        )
+        test_client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
         yield test_client
     app.dependency_overrides.clear()
 
@@ -43,9 +48,24 @@ def test_health_and_request_id(client):
     assert response.headers["X-Request-ID"] == "portfolio-check"
 
 
+def test_authentication_is_required_and_identity_is_available(client):
+    anonymous = TestClient(app)
+    assert anonymous.get("/turnos").status_code == 401
+    assert anonymous.post(
+        "/auth/login", json={"email": "admin@turnos.local", "password": "incorrecta"}
+    ).status_code == 401
+    identity = client.get("/auth/me")
+    assert identity.status_code == 200
+    assert identity.json()["role"] == "admin"
+
+
+def test_readiness_checks_database(client):
+    assert client.get("/ready").json() == {"status": "ready"}
+
+
 def test_turno_http_lifecycle(client):
     created = client.post("/turnos", json=payload())
-    assert created.status_code == 200
+    assert created.status_code == 201
     assert created.json()["cliente"] == "Ada Lovelace"
 
     listed = client.get("/turnos", params={"estado": "pendiente", "search": "Ada"})
@@ -63,7 +83,7 @@ def test_turno_http_lifecycle(client):
 
 
 def test_slot_conflict_returns_409(client):
-    assert client.post("/turnos", json=payload()).status_code == 200
+    assert client.post("/turnos", json=payload()).status_code == 201
     conflict = client.post("/turnos", json=payload())
     assert conflict.status_code == 409
     assert "fecha" in conflict.json()["detail"]

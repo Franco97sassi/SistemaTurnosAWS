@@ -76,6 +76,28 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   }
 
+  ordered_cache_behavior {
+    path_pattern     = "/ready"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "backend-alb"
+
+    viewer_protocol_policy = "redirect-to-https"
+    cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
+    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "/auth*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS", "POST"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "backend-alb"
+
+    viewer_protocol_policy = "redirect-to-https"
+    cache_policy_id          = "413f1606-515e-4d8f-8a40-1f93c6382e00"
+    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+  }
+
   restrictions {
 
     geo_restriction {

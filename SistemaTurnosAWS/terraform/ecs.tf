@@ -36,7 +36,10 @@ resource "aws_iam_role_policy" "ecs_read_database_secret" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
-      Resource = aws_db_instance.postgres.master_user_secret[0].secret_arn
+      Resource = concat(
+        [aws_db_instance.postgres.master_user_secret[0].secret_arn],
+        var.auth_secret_arn == "" ? [] : [var.auth_secret_arn]
+      )
     }]
   })
 }
@@ -71,13 +74,17 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "DB_NAME", value = var.db_name },
         { name = "DB_USER", value = var.db_username },
         { name = "CORS_ORIGINS", value = var.cors_origins },
-        { name = "APP_VERSION", value = "1.0.0" }
+        { name = "APP_VERSION", value = "1.0.0" },
+        { name = "ADMIN_EMAIL", value = var.admin_email }
       ]
 
-      secrets = [{
+      secrets = concat([{
         name      = "DB_PASSWORD"
         valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::"
-      }]
+      }], var.auth_secret_arn == "" ? [] : [
+        { name = "JWT_SECRET", valueFrom = "${var.auth_secret_arn}:JWT_SECRET::" },
+        { name = "ADMIN_PASSWORD", valueFrom = "${var.auth_secret_arn}:ADMIN_PASSWORD::" }
+      ])
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -98,6 +105,21 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+
+  lifecycle {
+    precondition {
+      condition     = var.environment != "production" || var.auth_secret_arn != ""
+      error_message = "auth_secret_arn is required for production deployments."
+    }
+  }
 
   depends_on = [
     aws_lb_listener.http,

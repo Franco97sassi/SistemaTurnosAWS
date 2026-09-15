@@ -1,5 +1,9 @@
 name: Deploy Sistema Turnos AWS
 
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 on:
   push:
     branches:
@@ -47,6 +51,7 @@ jobs:
         working-directory: SistemaTurnosAWS/frontend
         run: |
           npm ci
+          npm test
           npm run lint
           npm run build
 
@@ -86,12 +91,28 @@ jobs:
           docker build -t $REPOSITORY:${{ github.sha }} -t $REPOSITORY:latest ./SistemaTurnosAWS/backend
           docker push $REPOSITORY --all-tags
 
-      - name: Force ECS deployment
+      - name: Create immutable task definition
         run: |
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
-            --force-new-deployment
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPOSITORY=$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
+          aws ecs describe-task-definition --task-definition turnos-backend \
+            --query taskDefinition > task-definition.json
+          jq --arg IMAGE "$REPOSITORY:${{ github.sha }}" --arg NAME "${{ env.CONTAINER_NAME }}" \
+            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) |
+             (.containerDefinitions[] | select(.name == $NAME) | .image) = $IMAGE' \
+            task-definition.json > rendered-task-definition.json
+          TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://rendered-task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN" >> "$GITHUB_ENV"
+
+      - name: Deploy and verify backend
+        run: |
+          aws ecs update-service --cluster "${{ env.ECS_CLUSTER }}" \
+            --service "${{ env.ECS_SERVICE }}" \
+            --task-definition "$TASK_DEFINITION_ARN" >/dev/null
+          aws ecs wait services-stable --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}"
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -123,3 +144,10 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
+
+      - name: Production smoke test
+        run: |
+          CLOUDFRONT_URL=$(aws cloudfront get-distribution \
+            --id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --query 'Distribution.DomainName' --output text)
+          curl --fail --retry 5 --retry-delay 10 "https://$CLOUDFRONT_URL/health"

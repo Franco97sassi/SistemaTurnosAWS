@@ -1,22 +1,22 @@
-import logging
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .auth import LoginRequest, TokenResponse, UserIdentity, authenticate, current_user
 from .database import SessionLocal
 from .models import Turno
+from .observability import configure_logging
 from .schemas import TurnoCreate, TurnoListResponse, TurnoResponse, TurnoUpdate
 
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(message)s")
-logger = logging.getLogger("turnos")
+logger = configure_logging(os.getenv("LOG_LEVEL", "INFO"))
 
 allowed_origins = [
     origin.strip()
@@ -52,12 +52,14 @@ async def request_observability(request: Request, call_next):
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
     response.headers["X-Request-ID"] = request_id
     logger.info(
-        "request_completed request_id=%s method=%s path=%s status=%s duration_ms=%s",
-        request_id,
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
+        "request_completed",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "duration_ms": duration_ms,
+        },
     )
     return response
 
@@ -80,8 +82,28 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/turnos", response_model=TurnoResponse)
-def crear_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
+@app.get("/ready")
+def readiness(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ready"}
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+def login(credentials: LoginRequest):
+    return authenticate(credentials)
+
+
+@app.get("/auth/me", response_model=UserIdentity)
+def me(user: UserIdentity = Depends(current_user)):
+    return user
+
+
+@app.post("/turnos", response_model=TurnoResponse, status_code=201)
+def crear_turno(
+    turno: TurnoCreate,
+    db: Session = Depends(get_db),
+    _user: UserIdentity = Depends(current_user),
+):
     conflict = db.scalar(
         select(Turno).where(
             Turno.fecha == turno.fecha,
@@ -95,11 +117,15 @@ def crear_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
         cliente=turno.cliente,
         servicio=turno.servicio,
         fecha=turno.fecha,
-        estado="pendiente"
+        estado="pendiente",
     )
 
     db.add(nuevo_turno)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Ya existe un turno para esa fecha") from None
     db.refresh(nuevo_turno)
 
     return nuevo_turno
@@ -112,6 +138,7 @@ def listar_turnos(
     estado: Literal["pendiente", "cancelado"] | None = None,
     search: Annotated[str | None, Query(max_length=100)] = None,
     db: Session = Depends(get_db),
+    _user: UserIdentity = Depends(current_user),
 ):
     filters = []
     if estado:
@@ -132,7 +159,12 @@ def listar_turnos(
 
 
 @app.patch("/turnos/{turno_id}", response_model=TurnoResponse)
-def reprogramar_turno(turno_id: int, update: TurnoUpdate, db: Session = Depends(get_db)):
+def reprogramar_turno(
+    turno_id: int,
+    update: TurnoUpdate,
+    db: Session = Depends(get_db),
+    _user: UserIdentity = Depends(current_user),
+):
     turno = db.get(Turno, turno_id)
     if not turno:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
@@ -148,13 +180,21 @@ def reprogramar_turno(turno_id: int, update: TurnoUpdate, db: Session = Depends(
     if conflict:
         raise HTTPException(status_code=409, detail="Ya existe un turno para esa fecha")
     turno.fecha = update.fecha
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Ya existe un turno para esa fecha") from None
     db.refresh(turno)
     return turno
 
 
 @app.delete("/turnos/{turno_id}")
-def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
+def cancelar_turno(
+    turno_id: int,
+    db: Session = Depends(get_db),
+    _user: UserIdentity = Depends(current_user),
+):
     turno = db.get(Turno, turno_id)
 
     if not turno:

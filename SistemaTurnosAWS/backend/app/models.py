@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, Index, Integer, String, text
 from .database import Base
 
 class Turno(Base):
@@ -20,3 +20,12 @@ class Turno(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+Index(
+    "uq_turnos_fecha_pendiente",
+    Turno.fecha,
+    unique=True,
+    postgresql_where=text("estado = 'pendiente'"),
+    sqlite_where=text("estado = 'pendiente'"),
+)

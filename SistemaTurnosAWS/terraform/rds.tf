@@ -26,8 +26,10 @@ resource "aws_db_instance" "postgres" {
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
   publicly_accessible = false
-  skip_final_snapshot = true
-  deletion_protection = false
+  skip_final_snapshot       = var.environment != "production"
+  final_snapshot_identifier = var.environment == "production" ? "turnos-postgres-final" : null
+  deletion_protection       = var.environment == "production"
+  backup_retention_period   = var.environment == "production" ? 7 : 1
   storage_encrypted   = true
 
   tags = {

@@ -29,12 +29,14 @@ La base de datos no es pública y solo acepta tráfico desde el backend. RDS adm
 
 ## Funcionalidades
 
+- Acceso autenticado mediante tokens firmados y sesión persistente en el panel.
 - Crear turnos futuros con validación de cliente, servicio y disponibilidad.
 - Buscar y filtrar turnos con paginación desde la API.
 - Cancelar un turno sin borrar su historial.
 - Reprogramar turnos activos y prevenir reservas simultáneas para el mismo horario.
 - Health check para el balanceador y documentación OpenAPI en `/docs`.
 - Interfaz adaptable a escritorio y dispositivos móviles.
+- Panel operativo con métricas, búsqueda, filtros y reprogramación en un modal.
 
 ## Ejecución local
 
@@ -64,6 +66,11 @@ npm run dev
 
 Abre `http://localhost:5173`. La API y su documentación quedan disponibles en `http://localhost:8000` y `http://localhost:8000/docs`.
 
+Para la demostración local, inicia sesión con `admin@turnos.local` y
+`TurnosDemo2026!`. Estas credenciales son exclusivamente locales: en producción
+Terraform exige un secreto externo de Secrets Manager con las claves
+`JWT_SECRET` y `ADMIN_PASSWORD`.
+
 ## Variables de entorno
 
 | Componente | Variable | Descripción |
@@ -71,6 +78,7 @@ Abre `http://localhost:5173`. La API y su documentación quedan disponibles en `
 | Backend | `DATABASE_URL` | URL completa para desarrollo local. |
 | Backend | `CORS_ORIGINS` | Orígenes permitidos separados por comas. |
 | Backend | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Configuración usada en ECS. |
+| Backend | `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Firma de sesiones y cuenta inicial de operaciones. |
 | Frontend | `VITE_API_URL` | URL pública de FastAPI. |
 
 Nunca confirmes archivos `.env`, credenciales de AWS, archivos `tfvars` ni estados de Terraform.
@@ -79,7 +87,7 @@ Nunca confirmes archivos `.env`, credenciales de AWS, archivos `tfvars` ni estad
 
 ```bash
 cd SistemaTurnosAWS/backend && pytest
-cd SistemaTurnosAWS/frontend && npm run lint && npm run build
+cd SistemaTurnosAWS/frontend && npm test && npm run lint && npm run build
 terraform -chdir=SistemaTurnosAWS/terraform fmt -check -recursive
 terraform -chdir=SistemaTurnosAWS/terraform validate
 ```
@@ -88,7 +96,7 @@ El pipeline exige al menos 85% de cobertura del backend y ejecuta estos controle
 
 ## Infraestructura y despliegue
 
-1. Autentícate en AWS, define `cors_origins` con la URL real de CloudFront y ejecuta `terraform init`, `terraform plan` y `terraform apply` dentro de `SistemaTurnosAWS/terraform`.
+1. Copia `backend.hcl.example` fuera del repositorio, completa el bucket de estado y ejecuta `terraform init -backend-config=/ruta/backend.hcl`. Define `environment`, `cors_origins` y, para producción, `auth_secret_arn`; luego ejecuta `terraform plan` y `terraform apply` dentro de `SistemaTurnosAWS/terraform`.
 2. Configura GitHub OIDC y los secrets `AWS_DEPLOY_ROLE_ARN`, `S3_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`. No se almacenan access keys permanentes.
 3. Un push a `main` valida el proyecto, publica la imagen Docker y actualiza frontend y backend.
 
@@ -106,19 +114,21 @@ El pipeline exige al menos 85% de cobertura del backend y ejecuta estos controle
 
 ## Señales de calidad
 
-- Migraciones versionadas con Alembic, ejecutadas antes de iniciar la API.
+- Migraciones versionadas con Alembic y una restricción única parcial que garantiza la disponibilidad aun con múltiples tareas ECS.
 - Contratos HTTP probados de extremo a extremo con `TestClient` y cobertura mínima en CI.
 - Respuestas paginadas, filtros, búsqueda, conflictos `409` y validación de fechas futuras.
 - Request ID propagado en cada respuesta y logs con latencia para facilitar el diagnóstico.
 - Imagen Docker trazable mediante la etiqueta SHA del commit.
+- Despliegue inmutable por SHA, circuit breaker de ECS, espera de estabilidad y smoke test posterior.
+- Logs JSON, dashboard operativo, alarmas opcionales por SNS y readiness check de base de datos.
 
 Consulta [Arquitectura y decisiones](docs/ARCHITECTURE.md) para conocer los trade-offs, el modelo de amenazas y la estrategia de evolución.
 
 ## Próximos pasos
 
-- Añadir autenticación federada con Amazon Cognito y roles de usuario.
-- Añadir notificaciones de alarmas mediante SNS y métricas de negocio.
-- Separar ambientes y almacenar el estado de Terraform en S3 con locking.
+- Sustituir la cuenta operativa inicial por autenticación federada con Cognito cuando el producto incorpore clientes finales.
+- Ejecutar migraciones como una tarea ECS única previa al rolling deployment.
+- Incorporar pruebas E2E del navegador cuando el entorno de CI disponga del runtime de Playwright.
 
 ## Licencia
 
