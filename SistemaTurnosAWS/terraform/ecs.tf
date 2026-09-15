@@ -75,7 +75,10 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "DB_USER", value = var.db_username },
         { name = "CORS_ORIGINS", value = var.cors_origins },
         { name = "APP_VERSION", value = "1.0.0" },
-        { name = "ADMIN_EMAIL", value = var.admin_email }
+        { name = "ADMIN_EMAIL", value = var.admin_email },
+        { name = "DB_CONNECT_TIMEOUT", value = "10" },
+        { name = "DB_STARTUP_ATTEMPTS", value = "12" },
+        { name = "DB_STARTUP_DELAY_SECONDS", value = "5" }
       ]
 
       secrets = concat([{
@@ -105,6 +108,10 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+
+  # A new task can legitimately spend time waiting for RDS and serializing an
+  # Alembic migration. Do not let ECS recycle it before startup can complete.
+  health_check_grace_period_seconds = 180
 
   deployment_circuit_breaker {
     enable   = true
