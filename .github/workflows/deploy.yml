@@ -149,14 +149,15 @@ jobs:
           echo "TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN" >> "$GITHUB_ENV"
 
       - name: Deploy and verify backend
+        env:
+          ECS_DEPLOY_TIMEOUT_SECONDS: "1200"
         run: |
+          set -euo pipefail
           aws ecs update-service --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ env.ECS_SERVICE }}" \
             --region "${{ env.AWS_REGION }}" \
             --task-definition "$TASK_DEFINITION_ARN" >/dev/null
-          aws ecs wait services-stable --cluster "${{ env.ECS_CLUSTER }}" \
-            --region "${{ env.AWS_REGION }}" \
-            --services "${{ env.ECS_SERVICE }}"
+          .github/scripts/wait-for-ecs-deployment.sh "$TASK_DEFINITION_ARN"
 
   deploy-frontend:
     runs-on: ubuntu-latest
