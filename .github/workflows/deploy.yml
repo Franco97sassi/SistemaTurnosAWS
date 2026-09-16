@@ -73,12 +73,37 @@ jobs:
   deploy-backend:
     runs-on: ubuntu-latest
     needs: quality
+    env:
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Validate AWS authentication
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if [[ -n "$AWS_DEPLOY_ROLE_ARN" ]]; then
+            echo "Using GitHub OIDC to assume the deployment role."
+          elif [[ -n "$AWS_ACCESS_KEY_ID" && -n "$AWS_SECRET_ACCESS_KEY" ]]; then
+            echo "Using the configured AWS access keys."
+          else
+            echo "::error::AWS authentication is incomplete. Configure AWS_DEPLOY_ROLE_ARN (recommended), or both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials with OIDC
+        if: env.AWS_DEPLOY_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials with access keys
+        if: env.AWS_DEPLOY_ROLE_ARN == ''
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -162,12 +187,37 @@ jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
     needs: deploy-backend
+    env:
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Validate AWS authentication
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if [[ -n "$AWS_DEPLOY_ROLE_ARN" ]]; then
+            echo "Using GitHub OIDC to assume the deployment role."
+          elif [[ -n "$AWS_ACCESS_KEY_ID" && -n "$AWS_SECRET_ACCESS_KEY" ]]; then
+            echo "Using the configured AWS access keys."
+          else
+            echo "::error::AWS authentication is incomplete. Configure AWS_DEPLOY_ROLE_ARN (recommended), or both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials with OIDC
+        if: env.AWS_DEPLOY_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials with access keys
+        if: env.AWS_DEPLOY_ROLE_ARN == ''
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
