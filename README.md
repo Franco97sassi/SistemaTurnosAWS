@@ -98,7 +98,7 @@ El pipeline exige al menos 85% de cobertura del backend y ejecuta estos controle
 ## Infraestructura y despliegue
 
 1. Copia `backend.hcl.example` fuera del repositorio, completa el bucket de estado y ejecuta `terraform init -backend-config=/ruta/backend.hcl`. Define `environment`, `cors_origins` y, para producción, `auth_secret_arn`; luego ejecuta `terraform plan` y `terraform apply` dentro de `SistemaTurnosAWS/terraform`.
-2. Configura GitHub OIDC y los secrets `AWS_DEPLOY_ROLE_ARN`, `S3_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`. No se almacenan access keys permanentes.
+2. Configura los secrets de GitHub Actions `S3_BUCKET` y `CLOUDFRONT_DISTRIBUTION_ID`. Para autenticar AWS, configura `AWS_DEPLOY_ROLE_ARN` mediante OIDC (recomendado, sin credenciales permanentes). Como alternativa, el workflow acepta `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, pero las dos deben estar presentes. No mezcles métodos: si existe `AWS_DEPLOY_ROLE_ARN`, el workflow prioriza OIDC.
 3. Un push a `main` valida el proyecto, publica la imagen Docker y actualiza frontend y backend.
 
 > La infraestructura genera costos. Al terminar una demostración, ejecuta `terraform destroy` y comprueba que no queden recursos activos.
