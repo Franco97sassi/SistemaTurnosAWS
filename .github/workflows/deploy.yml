@@ -246,4 +246,4 @@ jobs:
           CLOUDFRONT_URL=$(aws cloudfront get-distribution \
             --id "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" \
             --query 'Distribution.DomainName' --output text)
-          curl --fail --retry 5 --retry-delay 10 "https://$CLOUDFRONT_URL/health"
+          curl --fail --retry 5 --retry-delay 10 "https://$CLOUDFRONT_URL/"
